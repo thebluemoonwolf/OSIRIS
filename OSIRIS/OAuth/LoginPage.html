@@ -1,0 +1,18 @@
+<!-- Login button -->
+<button onclick="loginWithRoblox()">
+    <img src="roblox-icon.png" alt="Roblox" style="width: 20px; height: 20px;">
+    Sign in with Roblox
+</button>
+
+<script>
+    function loginWithRoblox() {
+        // Redirect to your backend auth endpoint
+        window.location.href = 'https://api.cipherinteractive.dev/auth/roblox';
+    }
+
+    // Check for OAuth callback in URL (if handling on frontend)
+    if (window.location.search.includes('code=')) {
+        // You might want to handle this on backend instead
+        console.log('OAuth callback detected');
+    }
+</script>
