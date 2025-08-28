@@ -3,8 +3,15 @@ const express = require('express');
 const axios = require('axios');
 const crypto = require('crypto');
 const session = require('express-session');
+const MemoryStore = require('memorystore')(session);
 
 const app = express();
+
+// Handle missing SESSION_SECRET
+if (!process.env.SESSION_SECRET) {
+    console.warn('⚠️  SESSION_SECRET not set, using temporary secret');
+    process.env.SESSION_SECRET = crypto.randomBytes(64).toString('hex');
+}
 
 // Railway-specific configuration
 const PORT = process.env.PORT || 3000;
@@ -25,11 +32,19 @@ app.use(session({
         maxAge: 24 * 60 * 60 * 1000,
         sameSite: 'lax'
     },
-    store: new session.MemoryStore() // Explicit memory store
+    store: new MemoryStore({
+        checkPeriod: 86400000 // prune expired entries every 24h
+    })
 }));
 
 // Trust proxy for Railway
 app.set('trust proxy', 1);
+
+// Debug middleware to catch route issues
+app.use((req, res, next) => {
+    console.log(`Incoming request: ${req.method} ${req.path}`);
+    next();
+});
 
 // Health endpoint with environment info
 app.get('/health', (req, res) => {
@@ -49,7 +64,6 @@ app.get('/api/debug/env', (req, res) => {
         node_env: process.env.NODE_ENV,
         port: process.env.PORT,
         railway_environment: process.env.RAILWAY_ENVIRONMENT,
-        // Don't expose secrets, just check if they exist
         has_session_secret: !!process.env.SESSION_SECRET,
         has_roblox_secret: !!process.env.ROBLOX_CLIENT_SECRET,
         all_env_keys: Object.keys(process.env).filter(key =>
@@ -153,7 +167,7 @@ app.get('/oauth/callback', async (req, res) => {
 
         delete req.session.oauthState;
 
-        // Redirect to success page - update this to your frontend URL
+        // Redirect to success page
         res.redirect(process.env.FRONTEND_URL || 'https://cipherinteractive.dev/dashboard');
 
     } catch (error) {
@@ -180,7 +194,7 @@ app.use('*', (req, res) => {
 app.listen(PORT, HOST, () => {
     console.log(`🚀 Server running on http://${HOST}:${PORT}`);
     console.log(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔑 Session secret: ${process.env.SESSION_SECRET ? 'Set' : 'Missing'}`);
+    console.log(`🔑 Session secret: ${process.env.SESSION_SECRET ? 'Set' : 'Generated'}`);
     console.log(`🎮 Roblox secret: ${process.env.ROBLOX_CLIENT_SECRET ? 'Set' : 'Missing'}`);
 });
 
